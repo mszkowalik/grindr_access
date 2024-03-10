@@ -7,8 +7,8 @@ services:
     ports:
       - "8086:8086"
     volumes:
-      - ./influx/data:/var/lib/influxdb2
-      - ./influx/config:/config
+      - ./data/influx/data:/var/lib/influxdb2
+      - ./data/influx/config:/config
     environment:
       - DOCKER_INFLUXDB_INIT_MODE=setup
       - DOCKER_INFLUXDB_INIT_USERNAME
@@ -29,4 +29,4 @@ services:
     env_file:
       - .env
     volumes:
-      - ./grafana/data:/var/lib/grafana
+      - ./data/grafana/data:/var/lib/grafana

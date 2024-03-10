@@ -1,5 +1,3 @@
 .venv/*
 data/*
-grafana/*
-influx/*
 .env

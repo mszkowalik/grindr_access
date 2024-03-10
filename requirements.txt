@@ -7,3 +7,4 @@ scipy
 localization
 matplotlib
 python-dotenv
+influxdb_client
