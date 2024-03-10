@@ -8,3 +8,5 @@ localization
 matplotlib
 python-dotenv
 influxdb_client
+shapely
+mongoengine

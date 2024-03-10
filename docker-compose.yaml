@@ -30,3 +30,14 @@ services:
       - .env
     volumes:
       - ./data/grafana/data:/var/lib/grafana
+
+  mongodb:
+    image: mongo:7.0.5
+    container_name: mongodb
+    ports:
+    - "27017:27017"
+    environment:
+    - MONGO_INITDB_ROOT_USERNAME=admin
+    - MONGO_INITDB_ROOT_PASSWORD=admin
+    volumes:
+      - ./data/mongo:/data/db
