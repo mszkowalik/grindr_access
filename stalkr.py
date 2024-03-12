@@ -1,4 +1,4 @@
-from profile_model import ScrapedProfileModel, LocatedProfileModel
+from profile_model import ScrapedProfileModel, LocationHistoryModel
 from mongoengine import connect, Document, LongField, StringField
 from datetime import datetime, timedelta
 import time
@@ -9,7 +9,7 @@ import math
 import localization as lx
 import matplotlib.pyplot as plt
 import numpy as np
-from math import radians, cos, sin, asin, sqrt
+from math import radians, cos
 
 def generate_grid_points(center_lat, center_lon, side_m, points_per_side, jitter_m=100):
     # Approximate conversion factor: 1 degree latitude = 111,000 meters
@@ -134,6 +134,7 @@ def localizeProfile(profiles):
     profiles_df = pd.DataFrame(profiles)
     profile_id = profiles_df['profileId'].iloc[0]
     batch_timestamp = profiles_df['batch_timestamp'].iloc[0]
+    created = profiles_df['created'].iloc[0]
     localizedProfile = None
     if "distanceMeters" in profiles_df.columns:
         ref_points = [[lat, lon] for lat, lon in zip(profiles_df['lat'].tolist(), profiles_df['lon'].tolist())]
@@ -147,11 +148,14 @@ def localizeProfile(profiles):
         }
         if estimated_position:
             #sometimes not all fields are properly set in the request. This makes sure, that all data are available in database
-            profile_sum = {}
-            for profile in profiles:
-                profile_sum.update(profile)
-            localizedProfile = LocatedProfileModel(**profile_sum) # Create a new LocatedProfileModel instance
-            localizedProfile.lat = estimated_position[0]  # Set the estimated latitude
-            localizedProfile.lon = estimated_position[1]
+            loc_prof = {
+                "lat": estimated_position[0],
+                "lon": estimated_position[1],
+                "profileId": profile_id,
+                "created": int(datetime.now().timestamp() * 1000),
+                "batch_timestamp": batch_timestamp
+            }
+            localizedProfile = LocationHistoryModel(**loc_prof) # Create a new LocatedProfileModel instance
+
 
     return locations, localizedProfile
