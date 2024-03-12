@@ -44,12 +44,12 @@ class ProfileModel(DynamicDocument):
 class LocatedProfileModel(DynamicDocument):
     meta = {
         'collection': 'localizations',
-        # 'indexes': [
-        #     {
-        #         'fields': ['profileId', 'batch_timestamp'],
-        #         'unique': True,  # Set to True if you want the combination of profileId and created to be unique
-        #     },
-        # ],
+        'indexes': [
+            {
+                'fields': ['profileId', 'batch_timestamp'],
+                'unique': True,  # Set to True if you want the combination of profileId and created to be unique
+            },
+        ],
     }
     profileId = IntField(required=True)
     created = IntField()
