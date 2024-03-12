@@ -11,11 +11,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 from math import radians, cos, sin, asin, sqrt
 
-def generate_grid_points(center_lat, center_lon, side_m, points_per_side):
+def generate_grid_points(center_lat, center_lon, side_m, points_per_side, jitter_m=100):
     # Approximate conversion factor: 1 degree latitude = 111,000 meters
     deg_per_m = 1 / 111000
     # Jitter in degrees
-    jitter_m = 50  # 50 meters of jitter
     jitter_deg = jitter_m * deg_per_m
     # Calculate half side in degrees
     half_side_deg = (side_m / 2) * deg_per_m
@@ -33,32 +32,6 @@ def generate_grid_points(center_lat, center_lon, side_m, points_per_side):
 
     grid_points = [(lat+ np.random.uniform(-jitter_deg, jitter_deg), lon+ np.random.uniform(-jitter_deg, jitter_deg)) for lat in lat_steps for lon in lon_steps]
     # Initialize list to store grid points with jitter
-
-    return grid_points
-
-def generate_random_grid_points(center_lat, center_lon, side_m, points_per_side):
-    # Approximate conversion factor: 1 degree latitude = 111,000 meters
-    deg_per_m = 1 / 111000
-
-    # Calculate half side in degrees
-    half_side_deg = (side_m / 2) * deg_per_m
-
-    # Define the rectangle corners
-    top_lat = center_lat + half_side_deg
-    bottom_lat = center_lat - half_side_deg
-    # Adjust for longitude using cos(), now considering meters
-    left_lon = center_lon - half_side_deg / cos(radians(center_lat))
-    right_lon = center_lon + half_side_deg / cos(radians(center_lat))
-
-    # Total points is points_per_side squared since it's points per side for both latitude and longitude
-    total_points = points_per_side ** 2
-
-    # Generate random latitude and longitude points within the bounds
-    random_lat_points = np.random.uniform(low=bottom_lat, high=top_lat, size=total_points)
-    random_lon_points = np.random.uniform(low=left_lon, high=right_lon, size=total_points)
-
-    # Combine the random latitude and longitude points into pairs
-    grid_points = list(zip(random_lat_points, random_lon_points))
 
     return grid_points
 
@@ -140,6 +113,21 @@ def visualize(locations):
     plt.axis('equal')  # Equal aspect ratio to ensure circles look like circles
     plt.show()
 
+def visualize_grid(reference_points):
+    # Plotting
+    fig, ax = plt.subplots()
+
+    for lat, lon in reference_points:
+        ax.plot(lon, lat, 'bo')  # Reference points in blue
+
+    # Set labels and show plot
+    ax.set_xlabel('Longitude')
+    ax.set_ylabel('Latitude')
+    ax.set_title('Multilateration Visualization')
+    plt.grid(True)
+    plt.axis('equal')  # Equal aspect ratio to ensure circles look like circles
+    plt.show()
+
 def localizeProfile(profiles):
     locations = {}
     # Convert the list of dictionaries to a pandas DataFrame
@@ -158,10 +146,12 @@ def localizeProfile(profiles):
             "distances": profiles_df['distanceMeters'].tolist()
         }
         if estimated_position:
-            localizedProfile = LocatedProfileModel(**profiles[0]) # Create a new LocatedProfileModel instance
+            #sometimes not all fields are properly set in the request. This makes sure, that all data are available in database
+            profile_sum = {}
+            for profile in profiles:
+                profile_sum.update(profile)
+            localizedProfile = LocatedProfileModel(**profile_sum) # Create a new LocatedProfileModel instance
             localizedProfile.lat = estimated_position[0]  # Set the estimated latitude
             localizedProfile.lon = estimated_position[1]
-            # localizedProfile.save()
-        print(f"Profile ID: {profile_id}, Estimated Position: {estimated_position}, ref_points: {len(ref_points)}, average_distance: {sum(distances)/len(distances)}")
 
     return locations, localizedProfile
