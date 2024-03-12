@@ -10,3 +10,5 @@ python-dotenv
 influxdb_client
 shapely
 mongoengine
+requests
+Pillow

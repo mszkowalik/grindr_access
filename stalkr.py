@@ -1,4 +1,4 @@
-from profile_model import ProfileModel, LocatedProfileModel
+from profile_model import ScrapedProfileModel, LocatedProfileModel
 from mongoengine import connect, Document, LongField, StringField
 from datetime import datetime, timedelta
 import time
