@@ -1,15 +1,23 @@
-from profile_model import ScrapedProfileModel, LocationHistoryModel
-from mongoengine import connect, Document, LongField, StringField
-from datetime import datetime, timedelta
-import time
+import sys
+from datetime import datetime
+from contextlib import contextmanager
+from math import radians, cos, isnan
 import pandas as pd
 import numpy as np
-import math
-import math
 import localization as lx
 import matplotlib.pyplot as plt
-import numpy as np
-from math import radians, cos
+from profile_model import LocationHistoryModel
+
+# Define a context manager to suppress stdout
+@contextmanager
+def suppress_print():
+    original_stdout = sys.stdout  # Save the original stdout
+    sys.stdout = open('/dev/null', 'w')  # Redirect stdout to null
+    try:
+        yield
+    finally:
+        sys.stdout.close()  # Close the null file
+        sys.stdout = original_stdout  # Restore stdout to original
 
 def generate_grid_points(center_lat, center_lon, side_m, points_per_side, jitter_m=100):
     # Approximate conversion factor: 1 degree latitude = 111,000 meters
@@ -37,7 +45,7 @@ def generate_grid_points(center_lat, center_lon, side_m, points_per_side, jitter
 
 def select_indexes(distances, num_bins=5):
     # Filter out NaN values
-    valid_distances = np.array([distance for distance in distances if not math.isnan(distance)])
+    valid_distances = np.array([distance for distance in distances if not isnan(distance)])
     if valid_distances.size == 0:  # Check if the array is not empty to avoid errors
         return [], None
 
@@ -60,7 +68,7 @@ def select_indexes(distances, num_bins=5):
 
 def localize(ref_points,distances):
     P=lx.Project(mode='Earth1',solver='LSE')
-    if any(math.isnan(distance) for distance in distances):
+    if any(isnan(distance) for distance in distances):
         return
     selected_indexes, cutoff = select_indexes(distances)
     if len(selected_indexes) < 3:
@@ -70,8 +78,8 @@ def localize(ref_points,distances):
     t,label=P.add_target(ID=123)
     for i in selected_indexes:
         t.add_measure(f'anchore_{i}',distances[i])
-    # print(selected_indexes)
-    P.solve()
+    with suppress_print():
+        P.solve()
 
     return t.loc.x, t.loc.y
 
@@ -129,7 +137,7 @@ def visualize_grid(reference_points):
     plt.show()
 
 def localizeProfile(profiles):
-    locations = {}
+    localizations = {}
     # Convert the list of dictionaries to a pandas DataFrame
     profiles_df = pd.DataFrame(profiles)
     profile_id = profiles_df['profileId'].iloc[0]
@@ -140,7 +148,7 @@ def localizeProfile(profiles):
         ref_points = [[lat, lon] for lat, lon in zip(profiles_df['lat'].tolist(), profiles_df['lon'].tolist())]
         distances = profiles_df['distanceMeters'].tolist()
         estimated_position = localize(ref_points,distances)
-        locations[profile_id] = {
+        localizations[profile_id] = {
             "estimated_position": estimated_position,
             "batch_timestamp": batch_timestamp,
             "ref_points": ref_points,
@@ -158,4 +166,4 @@ def localizeProfile(profiles):
             localizedProfile = LocationHistoryModel(**loc_prof) # Create a new LocatedProfileModel instance
 
 
-    return locations, localizedProfile
+    return localizations, localizedProfile
