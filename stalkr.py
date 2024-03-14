@@ -5,8 +5,9 @@ from math import radians, cos, isnan
 import pandas as pd
 import numpy as np
 import localization as lx
+import pygeohash as gh
 import matplotlib.pyplot as plt
-from profile_model import LocationHistoryModel
+from db_models import profileLocationModel
 
 # Define a context manager to suppress stdout
 @contextmanager
@@ -43,34 +44,19 @@ def generate_grid_points(center_lat, center_lon, side_m, points_per_side, jitter
 
     return grid_points
 
-def select_indexes(distances, num_bins=5):
-    # Filter out NaN values
-    valid_distances = np.array([distance for distance in distances if not isnan(distance)])
-    if valid_distances.size == 0:  # Check if the array is not empty to avoid errors
-        return [], None
+def select_indices(distances):
+    # Convert distances to numpy array for efficient operations
+    distances = np.array(distances)
 
-    # Use numpy histogram to find bins
-    hist, bin_edges = np.histogram(valid_distances, bins=num_bins)
+    # Get the indices of the smallest 20 distances
+    closest_indices = distances.argsort()[:30]
+    return closest_indices
 
-    # Use digitize to find out which bin each distance belongs to
-    bin_indices = np.digitize(valid_distances, bin_edges[:-1]) - 1  # Adjust index to match bin placement
-
-    # Calculate average values for each bin
-    bin_averages = [np.mean(valid_distances[bin_indices == i]) for i in range(num_bins)]
-
-    # Identify the two bins with the smallest average values
-    smallest_bin_indices = np.argsort(bin_averages)[:2]
-
-    # Find the original indexes of distances that fall into the two smallest bins
-    selected_indexes = [i for i, distance in enumerate(distances) if bin_indices[i] in smallest_bin_indices]
-    distances_array = np.array(distances)
-    return selected_indexes, np.average(distances_array[selected_indexes])
-
-def localize(ref_points,distances):
+def localize(ref_points,distances)->list:
     P=lx.Project(mode='Earth1',solver='LSE')
     if any(isnan(distance) for distance in distances):
         return
-    selected_indexes, cutoff = select_indexes(distances)
+    selected_indexes = select_indices(distances)
     if len(selected_indexes) < 3:
         return
     for i in selected_indexes:
@@ -81,7 +67,44 @@ def localize(ref_points,distances):
     with suppress_print():
         P.solve()
 
-    return t.loc.x, t.loc.y
+    return [t.loc.x, t.loc.y]
+
+def localizeProfile(profiles, max_distance=1000):
+    localizations = {}
+    # Convert the list of dictionaries to a pandas DataFrame
+    profiles_df = pd.DataFrame(profiles)
+    profiles_df = profiles_df[profiles_df['distance_from_anchor'] <= max_distance]
+    if profiles_df.empty:
+        return localizations, None
+    profile_id = profiles_df['profileId'].iloc[0]
+    batch_timestamp = profiles_df['batch_timestamp'].iloc[0]
+    localizedProfile = None
+    if "distance_from_anchor" in profiles_df.columns:
+        ref_points = [[lat, lon] for lat, lon in zip(profiles_df['anchor_lat'].tolist(), profiles_df['anchor_lon'].tolist())]
+        distances = profiles_df['distance_from_anchor'].tolist()
+        estimated_position = localize(ref_points,distances)
+        estimated_gh = gh.encode(estimated_position[0], estimated_position[1],12) if estimated_position else ""
+        localizations[profile_id] = {
+            "estimated_position": estimated_position,
+            "estimated_gh": estimated_gh,
+            "batch_timestamp": batch_timestamp,
+            "ref_points": ref_points,
+            "distances": profiles_df['distance_from_anchor'].tolist()
+        }
+        if estimated_position:
+            #sometimes not all fields are properly set in the request. This makes sure, that all data are available in database
+            loc_prof = {
+                "lat": estimated_position[0],
+                "lon": estimated_position[1],
+                "geoHash": estimated_gh,
+                "profileId": profile_id,
+                "timestamp": int(datetime.now().timestamp() * 1000),
+                "batch_timestamp": batch_timestamp
+            }
+            localizedProfile = profileLocationModel(**loc_prof) # Create a new LocatedProfileModel instance
+
+
+    return localizations, localizedProfile
 
 def visualize(locations):
     # Example reference points and distances (lat, lon) and meters
@@ -135,35 +158,3 @@ def visualize_grid(reference_points):
     plt.grid(True)
     plt.axis('equal')  # Equal aspect ratio to ensure circles look like circles
     plt.show()
-
-def localizeProfile(profiles):
-    localizations = {}
-    # Convert the list of dictionaries to a pandas DataFrame
-    profiles_df = pd.DataFrame(profiles)
-    profile_id = profiles_df['profileId'].iloc[0]
-    batch_timestamp = profiles_df['batch_timestamp'].iloc[0]
-    created = profiles_df['created'].iloc[0]
-    localizedProfile = None
-    if "distanceMeters" in profiles_df.columns:
-        ref_points = [[lat, lon] for lat, lon in zip(profiles_df['lat'].tolist(), profiles_df['lon'].tolist())]
-        distances = profiles_df['distanceMeters'].tolist()
-        estimated_position = localize(ref_points,distances)
-        localizations[profile_id] = {
-            "estimated_position": estimated_position,
-            "batch_timestamp": batch_timestamp,
-            "ref_points": ref_points,
-            "distances": profiles_df['distanceMeters'].tolist()
-        }
-        if estimated_position:
-            #sometimes not all fields are properly set in the request. This makes sure, that all data are available in database
-            loc_prof = {
-                "lat": estimated_position[0],
-                "lon": estimated_position[1],
-                "profileId": profile_id,
-                "created": int(datetime.now().timestamp() * 1000),
-                "batch_timestamp": batch_timestamp
-            }
-            localizedProfile = LocationHistoryModel(**loc_prof) # Create a new LocatedProfileModel instance
-
-
-    return localizations, localizedProfile

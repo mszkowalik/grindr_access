@@ -1,19 +1,15 @@
 import os
-from math import radians, cos, isnan
 from dotenv import load_dotenv
 from datetime import datetime
 from copy import deepcopy
-import numpy as np
-import pandas as pd
 from mongoengine import connect, NotUniqueError
 from pymongo import errors
 import pygeohash as gh
-import localization as lx
 from deepdiff import DeepDiff
-from stalkr import generate_grid_points
-from grindr_access.grindrUser import grindrUser
+from stalkr import generate_grid_points, localizeProfile
+from grindr_access.grindr_user import GrindrUser
 from time import sleep
-from db_models import scrapedProfileModel, profileModel, profileHistoryModel, aggregatedProfileModel, profileLocationModel
+from db_models import scrapedProfileModel, profileModel, profileHistoryModel, aggregatedProfileModel
 
 load_dotenv()
 
@@ -26,18 +22,19 @@ connect(
     password=os.getenv('MONGO_PWD'),
     authentication_source="admin"
     )
-user = grindrUser()
+user = GrindrUser()
 mail = os.getenv('GRINDR_MAIL')
 password = os.getenv('GRINDR_PASS')
 krk_lat = 50.059185
 krk_lon = 19.937809
 
 while True:
+    print("Logging in...")
     user.login(mail, password)
 
     center_lat, center_lon = krk_lat, krk_lon # Equator and Prime Meridian
     side_m = 10000 # 10 km side length
-    accuracy_m = 1000 # 1000m
+    accuracy_m = 5000 # 1000m
     points_per_side = int(side_m/accuracy_m) # Generate 100 points
 
     grid_points = generate_grid_points(center_lat, center_lon, side_m, points_per_side,jitter_m=200)
@@ -45,6 +42,7 @@ while True:
     scraped_profiles = {}
     localization_data = {}
     batch_timestamp = int(datetime.now().timestamp() * 1000)
+
     i=0
     for anchor_point in grid_points:
         created = int(datetime.now().timestamp() * 1000)
@@ -102,9 +100,12 @@ while True:
             merged_profile_dict['created'] = batch_timestamp
             merged_profile_dict['updated'] = batch_timestamp
             profile = profileModel(**merged_profile_dict)
-
-            aggregated_profile = aggregatedProfileModel(**merged_profile_dict)
             profile.save()
+
+        if not aggregated_profile:
+            aggregated_profile = aggregatedProfileModel(**merged_profile_dict)
+            if len(aggregated_profile.photoMediaHashes) > 0:
+                print(user.get_image(aggregated_profile.photoMediaHashes[0]))
             aggregated_profile.save()
 
         current_profile_dict =  {}
@@ -137,68 +138,6 @@ while True:
             new_dict['updated'] = batch_timestamp
             aggregated_profile.update(**new_dict)
 
-    def select_indices(distances):
-        # Convert distances to numpy array for efficient operations
-        distances = np.array(distances)
-
-        # Get the indices of the smallest 20 distances
-        closest_indices = distances.argsort()[:30]
-        return closest_indices
-
-    def localize(ref_points,distances)->list:
-        P=lx.Project(mode='Earth1',solver='LSE')
-        if any(isnan(distance) for distance in distances):
-            return
-        selected_indexes = select_indices(distances)
-        if len(selected_indexes) < 3:
-            return
-        for i in selected_indexes:
-            P.add_anchor(f'anchore_{i}',ref_points[i])
-        t,label=P.add_target(ID=123)
-        for i in selected_indexes:
-            t.add_measure(f'anchore_{i}',distances[i])
-        # with suppress_print():
-        P.solve()
-
-        return [t.loc.x, t.loc.y]
-
-    def localizeProfile(profiles, max_distance=1000):
-        localizations = {}
-        # Convert the list of dictionaries to a pandas DataFrame
-        profiles_df = pd.DataFrame(profiles)
-        profiles_df = profiles_df[profiles_df['distance_from_anchor'] <= max_distance]
-        if profiles_df.empty:
-            return localizations, None
-        profile_id = profiles_df['profileId'].iloc[0]
-        batch_timestamp = profiles_df['batch_timestamp'].iloc[0]
-        localizedProfile = None
-        if "distance_from_anchor" in profiles_df.columns:
-            ref_points = [[lat, lon] for lat, lon in zip(profiles_df['anchor_lat'].tolist(), profiles_df['anchor_lon'].tolist())]
-            distances = profiles_df['distance_from_anchor'].tolist()
-            estimated_position = localize(ref_points,distances)
-            estimated_gh = gh.encode(estimated_position[0], estimated_position[1],12) if estimated_position else ""
-            localizations[profile_id] = {
-                "estimated_position": estimated_position,
-                "estimated_gh": estimated_gh,
-                "batch_timestamp": batch_timestamp,
-                "ref_points": ref_points,
-                "distances": profiles_df['distance_from_anchor'].tolist()
-            }
-            if estimated_position:
-                #sometimes not all fields are properly set in the request. This makes sure, that all data are available in database
-                loc_prof = {
-                    "lat": estimated_position[0],
-                    "lon": estimated_position[1],
-                    "geoHash": estimated_gh,
-                    "profileId": profile_id,
-                    "timestamp": int(datetime.now().timestamp() * 1000),
-                    "batch_timestamp": batch_timestamp
-                }
-                localizedProfile = profileLocationModel(**loc_prof) # Create a new LocatedProfileModel instance
-
-
-        return localizations, localizedProfile
-
     #multilateration results, localized profiles. profileId is the key
     ml_results = {}
     # dict with localized profiles (LocationHistoryModel) . profileId is the key
@@ -206,7 +145,7 @@ while True:
     # iterate over all profiles and localize them
     for profileId, scraped_profileList in localization_data.items():
         print(f"Localizing profile {profileId}...")
-        new_locations, loc_profile = localizeProfile(scraped_profileList, max_distance=2*accuracy_m)
+        new_locations, loc_profile = localizeProfile(scraped_profileList, max_distance=1.5*accuracy_m)
         if loc_profile:
             localized_profiles[profileId] = loc_profile
             try:
@@ -214,7 +153,7 @@ while True:
             except NotUniqueError:
                 print("A document with the same unique index already exists. Ignoring.")
         ml_results.update(new_locations)
-    timeout = 20*60
+    timeout = 2*60
     print("Localized profiles: ", len(localized_profiles))
-    print("sleeping for 10 minutes...")
+    print("sleeping for 2 minutes...")
     sleep(timeout)

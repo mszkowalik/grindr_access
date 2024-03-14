@@ -1,4 +1,4 @@
-pycurl==7.45.3
+pycurl==7.45.2
 pygeohash==1.2.0
 websocket-client
 numpy==1.26.4
