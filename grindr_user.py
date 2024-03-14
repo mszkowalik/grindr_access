@@ -1,8 +1,10 @@
-from generic_request import generic_post, generic_get
-from paths import SESSIONS, TAP, GET_USERS, TAPS_RECIEVED, GET_PROFILE, STATUS, ALBUM
+from generic_request import generic_post, generic_get, cdn_get
+from paths import SESSIONS, TAP, GET_USERS, TAPS_RECIEVED, GET_PROFILE, STATUS, ALBUM, GRINDR_HOSTNAME, GET_IMAGE_THUMBNAIL
 from utils import to_geohash
 import binascii
-
+from PIL import Image
+import base64
+import io
 
 class GrindrUser:
     def __init__(self):
@@ -98,3 +100,12 @@ class GrindrUser:
         _hex = str(_hex)
         _hex = _hex.replace("b'", "").replace("'", "")
         return _hex
+
+    def get_image(self, image_hash):
+        response = cdn_get(GET_IMAGE_THUMBNAIL + image_hash, {}, auth_token=self.sessionId)
+        image = Image.open(io.BytesIO(response))
+        # Convert the image to Base64
+        buffered = io.BytesIO()
+        image.save(buffered, format="WEBP") # Ensure you save it in the same format or convert if needed
+        img_str = "data:image/webp;base64,"+base64.b64encode(buffered.getvalue()).decode('utf-8')
+        return img_str

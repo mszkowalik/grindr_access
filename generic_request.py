@@ -93,3 +93,45 @@ def generic_get(path, data, auth_token=None):
 
     decompressed_response = zlib.decompress(response_data, zlib.MAX_WBITS | 16)
     return json.loads(decompressed_response)
+
+def cdn_get(path, data, auth_token=None):
+    response_data = []
+
+    c = pycurl.Curl()
+
+    c.setopt(
+        c.URL,
+        "https://cdns.grindr.com"
+        + path
+    )
+    c.setopt(c.CUSTOMREQUEST, "GET")
+
+    headers = [
+        "accept: application/json",
+        "accept-encoding: gzip",
+        "accept-language: en-US",
+        "connection: Keep-Alive",
+        "content-type: application/json; charset=UTF-8",
+        "host: cdns.grindr.com",
+        f"l-device-info: {gen_l_dev_info()}",
+        "l-locale: en_US",
+        "l-time-zone: Europe/Oslo",
+        "requirerealdeviceinfo: true",
+        "user-agent: grindrx/24.0.6 (iPhone; iOS 17.3.1; Scale/3.00)",
+    ]
+
+    if auth_token is not None:
+        headers.append("authorization: Grindr3 " + auth_token)
+
+    c.setopt(c.HTTPHEADER, headers)
+
+    def handle_response(data):
+        response_data.append(data)
+
+    c.setopt(c.WRITEFUNCTION, handle_response)
+    c.perform()
+    c.close()
+
+    response_data = b"".join(response_data)
+
+    return response_data

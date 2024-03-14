@@ -6,3 +6,7 @@ TAP = "/v1/interactions/taps"
 STATUS = "/v4/profiles/status"
 ALBUM = "/v2/albums/shares"
 SESSIONS = "/v3/sessions"
+GET_IMAGE_THUMBNAIL = "/images/thumb/320x320/"
+
+GRINDR_HOSTNAME = "https://grindr.mobi"
+CDN_HOSTNAME = "cdns.grindr.com"
