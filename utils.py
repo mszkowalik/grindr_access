@@ -3,7 +3,7 @@ import uuid
 import random
 
 
-def to_geohash(lat, lon, precision=5):
+def to_geohash(lat, lon, precision=12):
     return gh.encode(lat, lon, precision=precision)
 
 
