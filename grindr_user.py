@@ -17,7 +17,6 @@ class GrindrUser:
         response = generic_post(
             SESSIONS, {"email": email, "password": password, "token": ""}
         )
-        print(response)
         if "code" in response:
             code = response["code"]
 
@@ -102,7 +101,7 @@ class GrindrUser:
         return _hex
 
     def get_image(self, image_hash):
-        response = cdn_get(GET_IMAGE_THUMBNAIL + image_hash, {}, auth_token=self.sessionId)
+        response = cdn_get(GET_IMAGE_THUMBNAIL + image_hash, auth_token=self.sessionId)
         image = Image.open(io.BytesIO(response))
         # Convert the image to Base64
         buffered = io.BytesIO()

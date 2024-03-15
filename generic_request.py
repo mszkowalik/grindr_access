@@ -94,7 +94,7 @@ def generic_get(path, data, auth_token=None):
     decompressed_response = zlib.decompress(response_data, zlib.MAX_WBITS | 16)
     return json.loads(decompressed_response)
 
-def cdn_get(path, data, auth_token=None):
+def cdn_get(path, auth_token=None):
     response_data = []
 
     c = pycurl.Curl()
