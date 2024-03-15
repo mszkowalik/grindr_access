@@ -1,4 +1,4 @@
-version: '3.7'
+version: '3.8'
 
 services:
   influxdb:
@@ -32,6 +32,12 @@ services:
       - .env
     volumes:
       - ./data/grafana/data:/var/lib/grafana
+
+  stalkr:
+    container_name: stalkr
+    build: . # Assumes your Dockerfile is in the same directory as the docker-compose.yml
+    env_file:
+      - .env
 
   mongodb:
     image: mongo:7.0.5

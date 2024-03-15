@@ -34,7 +34,7 @@ while True:
 
     center_lat, center_lon = krk_lat, krk_lon # Equator and Prime Meridian
     side_m = 10000 # 10 km side length
-    accuracy_m = 5000 # 1000m
+    accuracy_m = 1000 # 1000m
     points_per_side = int(side_m/accuracy_m) # Generate 100 points
 
     grid_points = generate_grid_points(center_lat, center_lon, side_m, points_per_side,jitter_m=200)
@@ -105,7 +105,8 @@ while True:
         if not aggregated_profile:
             aggregated_profile = aggregatedProfileModel(**merged_profile_dict)
             if len(aggregated_profile.photoMediaHashes) > 0:
-                print(user.get_image(aggregated_profile.photoMediaHashes[0]))
+                # user.get_image(aggregated_profile.photoMediaHashes[0])
+                pass
             aggregated_profile.save()
 
         current_profile_dict =  {}
@@ -153,7 +154,7 @@ while True:
             except NotUniqueError:
                 print("A document with the same unique index already exists. Ignoring.")
         ml_results.update(new_locations)
-    timeout = 2*60
+    timeout = 5*60
     print("Localized profiles: ", len(localized_profiles))
-    print("sleeping for 2 minutes...")
+    print(f"sleeping for {timeout/60} minutes...")
     sleep(timeout)
