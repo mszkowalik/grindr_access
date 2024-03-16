@@ -3,9 +3,10 @@ version: '3.8'
 services:
   influxdb:
     image: influxdb:2.7.1
-    container_name: influxdb
+    container_name: stalkr-influxdb
     ports:
       - "8086:8086"
+    restart: unless-stopped
     volumes:
       - ./data/influx/data:/var/lib/influxdb2
       - ./data/influx/config:/config
@@ -21,9 +22,11 @@ services:
 
   grafana:
     image: grafana/grafana:latest
-    container_name: grafana
+    container_name: stalkr-grafana
     ports:
       - "3000:3000"
+    user: '0'
+    restart: unless-stopped
     environment:
       - GF_SECURITY_ADMIN_PASSWORD
       - GF_INSTALL_PLUGINS=https://github.com/meln5674/grafana-mongodb-community-plugin/releases/download/v0.2.0%2Brc3/meln5674-mongodb-community.zip;meln5674-mongodb-community,grafana-polystat-panel,cloudspout-button-panel,grafana-mqtt-datasource,mesak-imagesave-panel,dalvany-image-panel
@@ -38,12 +41,14 @@ services:
     build: . # Assumes your Dockerfile is in the same directory as the docker-compose.yml
     env_file:
       - .env
+    restart: unless-stopped
 
   mongodb:
     image: mongo:7.0.5
-    container_name: mongodb
+    container_name: stalkr-mongodb
     ports:
     - "27017:27017"
+    restart: unless-stopped
     environment:
     - MONGO_INITDB_ROOT_USERNAME=admin
     - MONGO_INITDB_ROOT_PASSWORD=admin

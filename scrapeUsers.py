@@ -10,6 +10,11 @@ from stalkr import generate_grid_points, localizeProfile
 from grindr_access.grindr_user import GrindrUser
 from time import sleep
 from db_models import scrapedProfileModel, profileModel, profileHistoryModel, aggregatedProfileModel
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s - %(levelname)s - %(message)s')
 
 load_dotenv()
 
@@ -25,16 +30,15 @@ connect(
 user = GrindrUser()
 mail = os.getenv('GRINDR_MAIL')
 password = os.getenv('GRINDR_PASS')
-krk_lat = 50.059185
-krk_lon = 19.937809
+center_lat = float(os.getenv('LOC_LAT'))
+center_lon = float(os.getenv('LOC_LON'))
 
 while True:
-    print("Logging in...")
+    logging.info("Logging in...")
     user.login(mail, password)
 
-    center_lat, center_lon = krk_lat, krk_lon # Equator and Prime Meridian
-    side_m = 10000 # 10 km side length
-    accuracy_m = 1000 # 1000m
+    side_m = float(os.getenv('SIDE_M'))
+    accuracy_m = float(os.getenv('ACCURACY_M'))
     points_per_side = int(side_m/accuracy_m) # Generate 100 points
 
     grid_points = generate_grid_points(center_lat, center_lon, side_m, points_per_side,jitter_m=200)
@@ -42,7 +46,7 @@ while True:
     scraped_profiles = {}
     localization_data = {}
     batch_timestamp = int(datetime.now().timestamp() * 1000)
-
+    logging.info(f"Scraping {len(grid_points)} points")
     i=0
     for anchor_point in grid_points:
         created = int(datetime.now().timestamp() * 1000)
@@ -50,7 +54,8 @@ while True:
         actual_anchor_point = list(gh.decode(anchor_gh))
         # Get the profiles for the current point from grindr API
         profile_list = user.getProfiles(actual_anchor_point[0], actual_anchor_point[1])
-        print(f"{i}/{len(grid_points)}\t Anchor_point: {actual_anchor_point}\t Anchor_gh: {anchor_gh}")
+        if i % 10 == 0:
+            logging.info(f"{i}/{len(grid_points)}\t Anchor_point: {actual_anchor_point}\t Anchor_gh: {anchor_gh}")
         for response in profile_list['items']:
             response_profile = response['data']
             prof = {}
@@ -85,7 +90,7 @@ while True:
                 scraped_profiles[scraped_prof.profileId].append(deepcopy(response_profile))
                 localization_data[scraped_prof.profileId].append(prof)
         i+=1
-
+    logging.info("Saving profiles - last and aggregated")
     for profileId, profiles in scraped_profiles.items():
         # iterate over all profiles and merge all the data by updating te output dict
         merged_profile_dict = profileModel().to_mongo().to_dict()
@@ -122,13 +127,13 @@ while True:
         diff = DeepDiff(current_profile_dict, merged_profile_dict, ignore_order=True, verbose_level=2).to_dict()
         # if there is a difference, update the profile
         if diff != {}:
-            print("Profile has changed: ", profileId)
-            print(diff)
+            logging.debug(f"Profile has changed: {profileId}")
+            logging.debug(diff)
             profileHistory = profileHistoryModel(profileId=profileId, timestamp=batch_timestamp, diff=diff)
             try:
                 profileHistory.save()
             except (NotUniqueError, errors.DuplicateKeyError):
-                    print("A document with the same unique index already exists. Ignoring.")
+                    logging.error(f"A document with the same unique index: {profileId} already exists. Ignoring.")
 
             # update the profile
             merged_profile_dict['updated'] = batch_timestamp
@@ -138,23 +143,29 @@ while True:
             new_dict.update(merged_profile_dict)
             new_dict['updated'] = batch_timestamp
             aggregated_profile.update(**new_dict)
-
+    logging.info(f"Localizing {len(scraped_profiles.keys())} profiles")
     #multilateration results, localized profiles. profileId is the key
     ml_results = {}
     # dict with localized profiles (LocationHistoryModel) . profileId is the key
     localized_profiles = {}
     # iterate over all profiles and localize them
     for profileId, scraped_profileList in localization_data.items():
-        print(f"Localizing profile {profileId}...")
+        logging.debug(f"Localizing profile {profileId}...")
         new_locations, loc_profile = localizeProfile(scraped_profileList, max_distance=1.5*accuracy_m)
         if loc_profile:
             localized_profiles[profileId] = loc_profile
             try:
                 loc_profile.save()  # Attempt to save the new LocationHistoryModel profile
             except NotUniqueError:
-                print("A document with the same unique index already exists. Ignoring.")
+                logging.error(f"A document with the same unique index: {profileId} already exists. Ignoring.")
+            aggregated_profile = aggregatedProfileModel.objects(profileId=profileId).first()
+            if aggregated_profile:
+                
+                aggregated_profile.last_gh = loc_profile.geoHash
+                aggregated_profile.save()
+
         ml_results.update(new_locations)
     timeout = 5*60
-    print("Localized profiles: ", len(localized_profiles))
-    print(f"sleeping for {timeout/60} minutes...")
+    logging.info(f"Localized profiles: {len(localized_profiles)}")
+    logging.info(f"sleeping for {timeout/60} minutes...")
     sleep(timeout)

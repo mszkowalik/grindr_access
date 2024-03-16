@@ -9,6 +9,7 @@ class baseProfileModel(Document):
     updated = IntField()
     last_lat = FloatField()
     last_lon = FloatField()
+    last_gh = StringField()
     last_batch_timestamp = IntField()
     cover_photo = StringField()
     profileType = StringField()
@@ -45,7 +46,6 @@ class baseProfileModel(Document):
     hivStatus = IntField()
     displayName = StringField()
     lastTestedDate = IntField()
-
 
 class profileModel(baseProfileModel):
     meta = {

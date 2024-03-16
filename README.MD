@@ -13,3 +13,10 @@ python3 -m venv .venv
 Repo init:
 1. add submodule:
 git submodule add git@github.com:mszkowalik/grindr_access.git
+
+
+Docker-compose setup:
+
+docker compose up -d --force-recreate --build
+docker logs stalkr --follow
+
