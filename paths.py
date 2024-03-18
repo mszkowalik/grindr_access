@@ -7,6 +7,8 @@ STATUS = "/v4/profiles/status"
 ALBUM = "/v2/albums/shares"
 SESSIONS = "/v3/sessions"
 GET_IMAGE_THUMBNAIL = "/images/thumb/320x320/"
+GET_IMAGE_PROFILE_1024 = "/images/profile/1024x1024/"
+GET_IMAGE_PROFILE_480 = "/images/profile/480x480/"
 
 GRINDR_HOSTNAME = "https://grindr.mobi"
 CDN_HOSTNAME = "cdns.grindr.com"

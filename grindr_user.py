@@ -1,5 +1,5 @@
 from generic_request import generic_post, generic_get, cdn_get
-from paths import SESSIONS, TAP, GET_USERS, TAPS_RECIEVED, GET_PROFILE, STATUS, ALBUM, GRINDR_HOSTNAME, GET_IMAGE_THUMBNAIL
+from paths import *
 from utils import to_geohash
 import binascii
 from PIL import Image
@@ -100,8 +100,8 @@ class GrindrUser:
         _hex = _hex.replace("b'", "").replace("'", "")
         return _hex
 
-    def get_image(self, image_hash):
-        response = cdn_get(GET_IMAGE_THUMBNAIL + image_hash, auth_token=self.sessionId)
+    def get_image(self, image_hash, size = GET_IMAGE_PROFILE_1024):
+        response = cdn_get(size + image_hash, auth_token=self.authToken)
         image = Image.open(io.BytesIO(response))
         # Convert the image to Base64
         buffered = io.BytesIO()

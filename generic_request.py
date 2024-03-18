@@ -113,15 +113,17 @@ def cdn_get(path, auth_token=None):
         "connection: Keep-Alive",
         "content-type: application/json; charset=UTF-8",
         "host: cdns.grindr.com",
-        f"l-device-info: {gen_l_dev_info()}",
+        # f"l-device-info: {gen_l_dev_info()}",
+        'l-device-info: 2938f76cff50af57;GLOBAL;2;2069590016;2277x1080;a9ffffa4-2b0e-479d-b3db-ae117c0a9686'
         "l-locale: en_US",
         "l-time-zone: Europe/Oslo",
         "requirerealdeviceinfo: true",
-        "user-agent: grindrx/24.0.6 (iPhone; iOS 17.3.1; Scale/3.00)",
+        "user-agent: grindr3/9.17.3.118538;118538;Free;Android 14;sdk_gphone64_x86_64;Google",
+        # "user-agent: grindrx/24.0.6 (iPhone; iOS 17.3.1; Scale/3.00)",
     ]
 
-    if auth_token is not None:
-        headers.append("authorization: Grindr3 " + auth_token)
+    # if auth_token is not None: 
+    #     headers.append("authorization: Grindr3 " + auth_token)
 
     c.setopt(c.HTTPHEADER, headers)
 
