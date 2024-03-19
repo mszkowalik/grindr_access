@@ -2,7 +2,7 @@ import pycurl
 import json
 import zlib
 from utils import gen_l_dev_info
-
+import logging
 
 def generic_post(path, data, auth_token=None):
     response_data = []
@@ -26,6 +26,7 @@ def generic_post(path, data, auth_token=None):
         "l-time-zone: Europe/Oslo",
         "requirerealdeviceinfo: true",
         "user-agent: grindr3/9.17.3.118538;118538;Free;Android 14;sdk_gphone64_x86_64;Google",
+        # "user-agent: grindrx/24.0.6 (iPhone; iOS 17.3.1; Scale/3.00)",
     ]
 
     if auth_token is not None:
@@ -42,8 +43,17 @@ def generic_post(path, data, auth_token=None):
     c.perform()
     c.close()
 
+    response_data_source = response_data
     response_data = b"".join(response_data)
-    decompressed_response = zlib.decompress(response_data, zlib.MAX_WBITS | 16)
+    try:
+        decompressed_response = zlib.decompress(response_data, zlib.MAX_WBITS | 16)
+
+    except zlib.error:
+        print(response_data_source)
+        logging.debug("Error decompressing response")
+        decompressed_response = ""
+        return None
+
     return json.loads(decompressed_response)
 
 

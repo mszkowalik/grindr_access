@@ -5,6 +5,7 @@ import binascii
 from PIL import Image
 import base64
 import io
+import logging
 
 class GrindrUser:
     def __init__(self):
@@ -17,6 +18,10 @@ class GrindrUser:
         response = generic_post(
             SESSIONS, {"email": email, "password": password, "token": ""}
         )
+        if response == None:
+            logging.debug("Wrong or empty response from Grindr API")
+            return False
+
         if "code" in response:
             code = response["code"]
 
@@ -26,6 +31,7 @@ class GrindrUser:
         self.profileId = response["profileId"]
         self.authToken = response["authToken"]
         self.xmppToken = response["xmppToken"]
+        return True
 
     def getProfiles(self, lat, lon):
         params = {
