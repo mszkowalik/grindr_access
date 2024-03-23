@@ -108,7 +108,11 @@ class GrindrUser:
 
     def get_image(self, image_hash, size = GET_IMAGE_PROFILE_1024):
         response = cdn_get(size + image_hash, auth_token=self.authToken)
-        image = Image.open(io.BytesIO(response))
+        try:
+            image = Image.open(io.BytesIO(response))
+        except:
+            logging.error("Error opening image")
+            return None
         # Convert the image to Base64
         buffered = io.BytesIO()
         image.save(buffered, format="WEBP") # Ensure you save it in the same format or convert if needed
